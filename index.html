@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Casa de Cambio - Registro de Operaciones</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Estilos personalizados para la fuente y el cuerpo */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Fondo gris claro */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Asegura que la aplicación ocupe toda la altura de la ventana */
+            padding: 1rem; /* Espaciado general */
+        }
+        /* Estilos para el contenedor principal de la aplicación */
+        .container {
+            background-color: #ffffff; /* Fondo blanco para el contenedor */
+            border-radius: 1.5rem; /* Bordes redondeados */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Sombra suave */
+            padding: 2.5rem; /* Espaciado interno */
+            width: 100%;
+            max-width: 28rem; /* Ancho máximo para el formulario */
+            text-align: center;
+        }
+        /* Estilos para los campos de entrada */
+        input[type="number"],
+        input[type="text"] {
+            border: 1px solid #cbd5e0; /* Borde gris claro */
+            border-radius: 0.75rem; /* Bordes redondeados */
+            padding: 0.75rem 1rem; /* Espaciado interno */
+            width: 100%;
+            transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+        input[type="number"]:focus,
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #3b82f6; /* Borde azul al enfocar */
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25); /* Sombra azul al enfocar */
+        }
+        /* Estilos para el botón */
+        button {
+            background-color: #3b82f6; /* Fondo azul */
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra para el botón */
+        }
+        button:hover {
+            background-color: #2563eb; /* Azul más oscuro al pasar el ratón */
+            transform: translateY(-2px); /* Pequeño efecto de elevación */
+        }
+        button:active {
+            transform: translateY(0); /* Vuelve a la posición original al hacer clic */
+        }
+        /* Estilos para el mensaje de estado */
+        #message {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            font-weight: 500;
+            text-align: center;
+        }
+        .message-success {
+            background-color: #d1fae5; /* Verde claro */
+            color: #065f46; /* Verde oscuro */
+        }
+        .message-error {
+            background-color: #fee2e2; /* Rojo claro */
+            color: #991b1b; /* Rojo oscuro */
+        }
+        /* Estilos para el indicador de carga */
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">Registro de Operaciones de Dólares</h1>
+
+        <form id="transactionForm" class="space-y-5">
+            <div>
+                <label for="transactionDate" class="block text-left text-gray-700 text-sm font-medium mb-2">Fecha y Hora de la Transacción:</label>
+                <input type="text" id="transactionDate" class="w-full bg-gray-100 cursor-not-allowed" readonly>
+            </div>
+
+            <div>
+                <label for="cantidadDolares" class="block text-left text-gray-700 text-sm font-medium mb-2">Cantidad en Dólares ($):</label>
+                <input type="number" id="cantidadDolares" class="w-full" placeholder="Ej: 100" step="0.01" required>
+            </div>
+
+            <div>
+                <label for="tipoCambio" class="block text-left text-gray-700 text-sm font-medium mb-2">Tipo de Cambio del Día (Pesos por Dólar):</label>
+                <input type="number" id="tipoCambio" class="w-full" placeholder="Cargando del Banco de México..." step="0.0001" required>
+                <div id="loadingExchangeRate" class="text-sm text-gray-500 mt-1 hidden">
+                    Cargando tipo de cambio... <span class="loading-spinner"></span>
+                </div>
+            </div>
+
+            <div>
+                <label for="totalPesos" class="block text-left text-gray-700 text-sm font-medium mb-2">Total en Pesos a Entregar ($):</label>
+                <input type="text" id="totalPesos" class="w-full bg-gray-100 cursor-not-allowed" readonly>
+            </div>
+
+            <button type="submit" class="w-full">Guardar Transacción</button>
+        </form>
+
+        <div id="message" class="hidden"></div>
+    </div>
+
+    <script>
+        // Obtener referencias a los elementos del DOM
+        const transactionDateInput = document.getElementById('transactionDate'); // Nuevo campo de fecha
+        const cantidadDolaresInput = document.getElementById('cantidadDolares');
+        const tipoCambioInput = document.getElementById('tipoCambio');
+        const totalPesosInput = document.getElementById('totalPesos');
+        const transactionForm = document.getElementById('transactionForm');
+        const messageDiv = document.getElementById('message');
+        const loadingExchangeRateDiv = document.getElementById('loadingExchangeRate');
+
+        // *** IMPORTANTE: REEMPLAZA ESTO CON LA URL REAL DE TU GOOGLE APPS SCRIPT ***
+        // Esta URL la obtendrás después de desplegar tu Apps Script.
+     https://script.google.com/macros/s/AKfycbx0I6t9S8ERvYfvAh4Kpcp8SDS1snx7n8TRjtCw2fuXRsuhrMUcAUeOHc2NQ3Ksf2m4/exec
+
+        // Función para obtener la fecha y hora actual formateada
+        function getFormattedCurrentDateTime() {
+            return new Date().toLocaleString('es-ES', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        // Función para actualizar la fecha visible en el formulario
+        function updateTransactionDateDisplay() {
+            transactionDateInput.value = getFormattedCurrentDateTime();
+        }
+
+        // Función para calcular el total en pesos automáticamente
+        function calcularTotalPesos() {
+            const cantidadDolares = parseFloat(cantidadDolaresInput.value);
+            const tipoCambio = parseFloat(tipoCambioInput.value);
+
+            // Verificar que los valores sean números válidos
+            if (!isNaN(cantidadDolares) && !isNaN(tipoCambio) && cantidadDolares >= 0 && tipoCambio > 0) {
+                const totalPesos = cantidadDolares * tipoCambio;
+                totalPesosInput.value = totalPesos.toFixed(2); // Mostrar con 2 decimales
+            } else {
+                totalPesosInput.value = ''; // Limpiar si los valores no son válidos
+            }
+        }
+
+        // Función para obtener el tipo de cambio del Banco de México (simulado)
+        async function fetchTipoDeCambioBanxico() {
+            loadingExchangeRateDiv.classList.remove('hidden'); // Mostrar indicador de carga
+            tipoCambioInput.placeholder = 'Cargando...'; // Cambiar placeholder
+            tipoCambioInput.disabled = true; // Deshabilitar mientras carga
+
+            // --- NOTA IMPORTANTE PARA LA INTEGRACIÓN REAL DE BANXICO ---
+            // La API del Banco de México (Banxico SIE-API) requiere un token de acceso.
+            // Obtener este token y realizar la llamada directamente desde el navegador (cliente-side)
+            // puede ser complicado debido a las políticas de CORS y la necesidad de mantener el token seguro.
+            //
+            // En un entorno de producción, lo más común es:
+            // 1. Obtener el token de Banxico en un servidor (backend).
+            // 2. Hacer la llamada a la API de Banxico desde ese mismo backend.
+            // 3. Exponer un endpoint en tu backend que tu aplicación web pueda llamar
+            //    para obtener el tipo de cambio de forma segura, sin exponer el token de Banxico.
+            //
+            // Por ahora, seguimos con una simulación.
+
+            try {
+                // Simulación de una llamada a la API y un retraso para ver el efecto de carga
+                await new Promise(resolve => setTimeout(resolve, 1500)); // Simular carga de 1.5 segundos
+
+                // Valor de tipo de cambio simulado (ejemplo, en un caso real vendría de la API)
+                const simulatedExchangeRate = 17.05; // Valor de ejemplo
+
+                tipoCambioInput.value = simulatedExchangeRate.toFixed(4); // Rellenar el campo
+                showMessage('Tipo de cambio del Banco de México cargado.', 'success');
+
+            } catch (error) {
+                console.error('Error al obtener el tipo de cambio de Banxico:', error);
+                showMessage('No se pudo cargar el tipo de cambio del Banco de México. Por favor, ingrésalo manualmente.', 'error');
+                tipoCambioInput.value = ''; // Limpiar el campo en caso de error
+            } finally {
+                loadingExchangeRateDiv.classList.add('hidden'); // Ocultar indicador de carga
+                tipoCambioInput.placeholder = 'Ej: 17.50'; // Restaurar placeholder
+                tipoCambioInput.disabled = false; // Habilitar el campo
+                calcularTotalPesos(); // Recalcular por si se ingresó algo manualmente antes de cargar
+            }
+        }
+
+        // Escuchar cambios en los campos de cantidad y tipo de cambio para recalcular
+        cantidadDolaresInput.addEventListener('input', calcularTotalPesos);
+        tipoCambioInput.addEventListener('input', calcularTotalPesos);
+
+        // Función para mostrar mensajes al usuario
+        function showMessage(msg, type) {
+            messageDiv.textContent = msg;
+            messageDiv.className = `block ${type === 'success' ? 'message-success' : 'message-error'}`;
+            messageDiv.classList.remove('hidden'); // Asegurarse de que el mensaje sea visible
+        }
+
+        // Manejar el envío del formulario
+        transactionForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Evitar el envío por defecto del formulario
+
+            const cantidadDolares = parseFloat(cantidadDolaresInput.value);
+            const tipoCambio = parseFloat(tipoCambioInput.value);
+            const totalPesos = parseFloat(totalPesosInput.value);
+            const transactionDateTime = getFormattedCurrentDateTime(); // Obtener la fecha y hora en el momento de la transacción
+
+            // Validar que los campos requeridos tengan valores válidos
+            if (isNaN(cantidadDolares) || cantidadDolares <= 0 || isNaN(tipoCambio) || tipoCambio <= 0 || isNaN(totalPesos)) {
+                showMessage('Por favor, ingresa cantidades válidas y mayores que cero.', 'error');
+                return;
+            }
+
+            // Asegurarse de que la URL del Apps Script esté configurada
+            if (GOOGLE_APPS_SCRIPT_WEB_APP_URL === 'TU_URL_DE_APPS_SCRIPT_AQUI' || !GOOGLE_APPS_SCRIPT_WEB_APP_URL) {
+                showMessage('Error: La URL del Google Apps Script no está configurada. Por favor, despliega el script y pega la URL.', 'error');
+                console.error('La URL del Google Apps Script no está configurada.');
+                return;
+            }
+
+            // Crear el objeto de datos de la transacción
+            const transactionData = {
+                fecha: transactionDateTime, // Usar la fecha y hora obtenida justo antes de guardar
+                cantidadDolares: cantidadDolares,
+                tipoCambio: tipoCambio,
+                totalPesos: totalPesos
+            };
+
+            try {
+                // Realizar la solicitud POST al Google Apps Script
+                const response = await fetch(GOOGLE_APPS_SCRIPT_WEB_APP_URL, {
+                    method: 'POST',
+                    // Importante: 'no-cors' puede ser necesario si no configuras CORS en Apps Script,
+                    // pero te impide leer la respuesta real. Para leer la respuesta,
+                    // el Apps Script debe enviar encabezados CORS apropiados (Content-Type, Access-Control-Allow-Origin).
+                    // Para este ejemplo, lo dejamos en 'no-cors' por simplicidad, pero ten en cuenta la limitación.
+                    mode: 'no-cors', 
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(transactionData),
+                });
+
+                // Con 'no-cors', no podemos leer 'response.ok' o 'response.json()'.
+                // La única indicación de éxito es que la petición se envió sin errores de red.
+                // Si necesitas una confirmación desde el Apps Script, debes configurar CORS en el Apps Script
+                // y usar 'mode: "cors"' aquí.
+                
+                // Simular un breve retraso para mejorar la experiencia de usuario
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Suponemos que la petición se envió si no hubo error en el fetch.
+                // La verificación real de éxito ocurrirá en Google Sheets.
+                showMessage('Transacción enviada. Verifica tu Google Sheet para confirmar el guardado.', 'success');
+
+                // Limpiar el formulario después de guardar
+                transactionForm.reset();
+                totalPesosInput.value = ''; // Asegurarse de limpiar el total calculado
+                updateTransactionDateDisplay(); // Actualizar la fecha y hora del campo para la nueva transacción
+                fetchTipoDeCambioBanxico(); // Volver a cargar el tipo de cambio
+            } catch (error) {
+                console.error('Error al enviar la transacción:', error);
+                showMessage('Error al enviar la transacción. Asegúrate de que la URL del Apps Script es correcta y el script está desplegado.', 'error');
+            }
+        });
+
+        // Al cargar la página, actualizar la fecha y hora y obtener el tipo de cambio del Banco de México
+        window.onload = () => {
+            updateTransactionDateDisplay(); // Mostrar la fecha y hora actual
+            fetchTipoDeCambioBanxico();
+        };
+
+        // Inicializar el cálculo al cargar la página si hay valores preexistentes (aunque no debería haberlos en un formulario vacío)
+        calcularTotalPesos();
+    </script>
+</body>
+</html>
